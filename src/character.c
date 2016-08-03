@@ -960,14 +960,18 @@ character is not ASCII nor 8-bit character, an error is signaled.  */)
   return make_number (c);
 }
 
+static unicode_category_t
+char_unicode_category (int c)
+{
+  Lisp_Object category = CHAR_TABLE_REF (Vunicode_category_table, c);
+  return INTEGERP (category) ? XINT (category) : UNICODE_CATEGORY_UNKNOWN;
+}
+
 /* Return true if C is an alphabetic character.  */
 bool
 alphabeticp (int c)
 {
-  Lisp_Object category = CHAR_TABLE_REF (Vunicode_category_table, c);
-  if (! INTEGERP (category))
-    return false;
-  EMACS_INT gen_cat = XINT (category);
+  unicode_category_t gen_cat = char_unicode_category (c);
 
   /* See UTS #18.  There are additional characters that should be
      here, those designated as Other_uppercase, Other_lowercase,
@@ -987,10 +991,7 @@ alphabeticp (int c)
 bool
 alphanumericp (int c)
 {
-  Lisp_Object category = CHAR_TABLE_REF (Vunicode_category_table, c);
-  if (! INTEGERP (category))
-    return false;
-  EMACS_INT gen_cat = XINT (category);
+  unicode_category_t gen_cat = char_unicode_category (c);
 
   /* See UTS #18.  Same comment as for alphabeticp applies.  FIXME. */
   return (gen_cat == UNICODE_CATEGORY_Lu
@@ -1009,13 +1010,11 @@ alphanumericp (int c)
 bool
 graphicp (int c)
 {
-  Lisp_Object category = CHAR_TABLE_REF (Vunicode_category_table, c);
-  if (! INTEGERP (category))
-    return false;
-  EMACS_INT gen_cat = XINT (category);
+  unicode_category_t gen_cat = char_unicode_category (c);
 
   /* See UTS #18.  */
-  return (!(gen_cat == UNICODE_CATEGORY_Zs /* space separator */
+  return (!(gen_cat == UNICODE_CATEGORY_UNKNOWN
+	    || gen_cat == UNICODE_CATEGORY_Zs /* space separator */
 	    || gen_cat == UNICODE_CATEGORY_Zl /* line separator */
 	    || gen_cat == UNICODE_CATEGORY_Zp /* paragraph separator */
 	    || gen_cat == UNICODE_CATEGORY_Cc /* control */
@@ -1027,13 +1026,11 @@ graphicp (int c)
 bool
 printablep (int c)
 {
-  Lisp_Object category = CHAR_TABLE_REF (Vunicode_category_table, c);
-  if (! INTEGERP (category))
-    return false;
-  EMACS_INT gen_cat = XINT (category);
+  unicode_category_t gen_cat = char_unicode_category (c);
 
   /* See UTS #18.  */
-  return (!(gen_cat == UNICODE_CATEGORY_Cc /* control */
+  return (!(gen_cat == UNICODE_CATEGORY_UNKNOWN
+	    || gen_cat == UNICODE_CATEGORY_Cc /* control */
 	    || gen_cat == UNICODE_CATEGORY_Cs /* surrogate */
 	    || gen_cat == UNICODE_CATEGORY_Cn)); /* unassigned */
 }
