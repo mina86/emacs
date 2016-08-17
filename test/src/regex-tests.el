@@ -65,27 +65,30 @@ character) must match a string \"\u2420\"."
         (skip-chars-forward (concat "[:" name ":]\u2622"))
         (should (or (equal (point) p) (equal (point) (1+ p))))))))
 
-(dolist (test '(("alnum" "abcABC012łąka" "-, \t\n")
-                ("alpha" "abcABCłąka" "-,012 \t\n")
+(dolist (test '(("alnum" "abcABC012łąkaǱßĲﬁǲΣσςɕ" "-, \t\n")
+                ("alpha" "abcABCłąkaǱßĲﬁǲΣσςɕ" "-,012 \t\n")
                 ("digit" "012" "abcABCłąka-, \t\n")
                 ("xdigit" "0123aBc" "łąk-, \t\n")
-                ("upper" "ABCŁĄKA" "abc012-, \t\n")
-                ("lower" "abcłąka" "ABC012-, \t\n")
+                ("upper" "ABCŁĄKAǱĲΣ" "abcß0ﬁσςɕ12-, \t\n")
+                ;; FIXME(bug#24603): ßﬁɕ are all lower case (even though they
+                ;; don’t have (single-character) upper-case form).
+                ("lower" "abcłąkaσς" "ABC012ǱĲΣ-, \t\n")
 
-                ("word" "abcABC012\u2620" "-, \t\n")
+                ("word" "abcABC012\u2620ǱßĲﬁǲΣσςɕ" "-, \t\n")
 
                 ("punct" ".,-" "abcABC012\u2620 \t\n")
                 ("cntrl" "\1\2\t\n" ".,-abcABC012\u2620 ")
-                ("graph" "abcłąka\u2620-," " \t\n\1")
-                ("print" "abcłąka\u2620-, " "\t\n\1")
+                ("graph" "abcłąka\u2620-,ǱßĲﬁǲΣσςɕ" " \t\n\1")
+                ("print" "abcłąka\u2620-,ǱßĲﬁǲΣσςɕ " "\t\n\1")
 
                 ("space" " \t\n\u2001" "abcABCł0123")
                 ("blank" " \t\u2001" "\n")
 
-                ("ascii" "abcABC012 \t\n\1" "łą\u2620")
-                ("nonascii" "łą\u2622" "abcABC012 \t\n\1")
-                ("unibyte" "abcABC012 \t\n\1" "łą\u2622")
-                ("multibyte" "łą\u2622" "abcABC012 \t\n\1")))
+                ("ascii" "abcABC012 \t\n\1" "łą\u2620ǱßĲﬁǲΣσςɕ")
+                ("nonascii" "łą\u2622ǱßĲﬁǲΣσςɕ" "abcABC012 \t\n\1")
+                ;; Note: sharp s is unibyte since it’s code point is below 256.
+                ("unibyte" "abcABC012ß \t\n\1" "łą\u2622ǱĲﬁǲΣσςɕ")
+                ("multibyte" "łą\u2622ǱĲﬁǲΣσςɕ" "abcABC012ß \t\n\1")))
   (let ((name (intern (concat "regex-tests-" (car test) "-character-class")))
         (doc (concat "Perform sanity test of regexes using " (car test)
                      " character class.
