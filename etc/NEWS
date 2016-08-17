@@ -168,6 +168,12 @@ interface that's more like functions like @code{search-forward}.
 ** More commands support noncontiguous rectangular regions, namely
 'upcase-dwim', 'downcase-dwim', 'replace-string', 'replace-regexp'.
 
+** Various casing improvements.
+
+*** 'upper' and 'lower' classes match characters w/o simple cased forms.
+For instance, ß letter and ﬁ ligature are now matched by [[:lower:]]
+regular expression.
+
 
 * Changes in Specialized Modes and Packages in Emacs 27.1
 
@@ -569,6 +575,10 @@ however applications should instead call 'display-buffer-in-side-window'
 is backwards-compatible with versions of Emacs in which the old function
 exists.  See the node "Displaying Buffers in Side Windows" in the ELisp
 manual for more details.
+
+** 'upper' and 'lower' character classes are unaffected by case table
+since they are now based purely on Unicode properties.
+
 
 * Lisp Changes in Emacs 27.1
 

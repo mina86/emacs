@@ -70,9 +70,7 @@ character) must match a string \"\u2420\"."
                 ("digit" "012" "abcABCłąka-, \t\n")
                 ("xdigit" "0123aBc" "łąk-, \t\n")
                 ("upper" "ABCŁĄKAǱĲΣ" "abcß0ﬁσςɕ12-, \t\n")
-                ;; FIXME(bug#24603): ßﬁɕ are all lower case (even though they
-                ;; don’t have (single-character) upper-case form).
-                ("lower" "abcłąkaσς" "ABC012ǱĲΣ-, \t\n")
+                ("lower" "abcłąkaßﬁσς" "ABC012ǱĲΣ-, \t\n")
 
                 ("word" "abcABC012\u2620ǱßĲﬁǲΣσςɕ" "-, \t\n")
 

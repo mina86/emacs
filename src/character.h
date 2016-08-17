@@ -676,6 +676,8 @@ extern ptrdiff_t lisp_string_width (Lisp_Object, ptrdiff_t,
 extern Lisp_Object Vchar_unify_table;
 extern Lisp_Object string_escape_byte8 (Lisp_Object);
 
+extern bool uppercasep (int);
+extern bool lowercasep (int);
 extern bool alphabeticp (int);
 extern bool alphanumericp (int);
 extern bool graphicp (int);

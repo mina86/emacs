@@ -967,6 +967,30 @@ char_unicode_category (int c)
   return INTEGERP (category) ? XINT (category) : UNICODE_CATEGORY_UNKNOWN;
 }
 
+/* Return true if C is a upper case character.  This does not imply it
+   has a lower case form. */
+bool
+uppercasep (int c)
+{
+  unicode_category_t gen_cat = char_unicode_category (c);
+
+  /* See UTS #18.  There are additional characters that should be
+     here, those designated as Other_uppercase; FIXME.  */
+  return gen_cat == UNICODE_CATEGORY_Lu;
+}
+
+/* Return true if C is a lower case character.  This does not imply it
+   has an upper case form. */
+bool
+lowercasep (int c)
+{
+  unicode_category_t gen_cat = char_unicode_category (c);
+
+  /* See UTS #18.  There are additional characters that should be
+     here, those designated as Other_lowercase; FIXME.  */
+  return gen_cat == UNICODE_CATEGORY_Ll;
+}
+
 /* Return true if C is an alphabetic character.  */
 bool
 alphabeticp (int c)

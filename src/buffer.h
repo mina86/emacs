@@ -1399,20 +1399,6 @@ upcase (int c)
   return NATNUMP (up) ? XFASTINT (up) : c;
 }
 
-/* True if C is upper case.  */
-INLINE bool
-uppercasep (int c)
-{
-  return downcase (c) != c;
-}
-
-/* True if C is lower case.  */
-INLINE bool
-lowercasep (int c)
-{
-  return !uppercasep (c) && upcase (c) != c;
-}
-
 INLINE_HEADER_END
 
 #endif /* EMACS_BUFFER_H */
