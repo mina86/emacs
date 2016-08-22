@@ -310,30 +310,20 @@ enum syntaxcode { Swhitespace = 0, Sword = 1, Ssymbol = 2 };
 
 /* The rest must handle multibyte characters.  */
 
-# define ISBLANK(c) (IS_REAL_ASCII (c)                  \
-                     ? ((c) == ' ' || (c) == '\t')      \
-                     : blankp (c))
+# define ISALNUM(c) (get_char_bits (c) & CHAR_BIT_ALNUM)
+# define ISALPHA(c) (get_char_bits (c) & CHAR_BIT_ALPHA)
+# define ISUPPER(c) (get_char_bits (c) & CHAR_BIT_UPPER)
+# define ISLOWER(c) (get_char_bits (c) & CHAR_BIT_LOWER)
+# define ISBLANK(c) (get_char_bits (c) & CHAR_BIT_BLANK)
 
-# define ISGRAPH(c) (SINGLE_BYTE_CHAR_P (c)				\
-		     ? (c) > ' ' && !((c) >= 0177 && (c) <= 0240)	\
-		     : graphicp (c))
+# define ISGRAPH(c) (SINGLE_BYTE_CHAR_P (c)                            \
+		     ? (c) > ' ' && !((c) >= 0177 && (c) <= 0240)      \
+		     : (get_unicode_char_bits (c) & CHAR_BIT_GRAPH))
 
-# define ISPRINT(c) (SINGLE_BYTE_CHAR_P (c)				\
-		    ? (c) >= ' ' && !((c) >= 0177 && (c) <= 0237)	\
-		     : printablep (c))
+# define ISPRINT(c) (SINGLE_BYTE_CHAR_P (c)                            \
+		     ? (c) >= ' ' && !((c) >= 0177 && (c) <= 0237)     \
+		     : (get_unicode_char_bits (c) & CHAR_BIT_PRINT))
 
-# define ISALNUM(c) (IS_REAL_ASCII (c)			\
-		    ? (((c) >= 'a' && (c) <= 'z')	\
-		       || ((c) >= 'A' && (c) <= 'Z')	\
-		       || ((c) >= '0' && (c) <= '9'))	\
-		    : alphanumericp (c))
-
-# define ISALPHA(c) (IS_REAL_ASCII (c)			\
-		    ? (((c) >= 'a' && (c) <= 'z')	\
-		       || ((c) >= 'A' && (c) <= 'Z'))	\
-		    : alphabeticp (c))
-
-# define ISLOWER(c) lowercasep (c)
 
 # define ISPUNCT(c) (IS_REAL_ASCII (c)				\
 		    ? ((c) > ' ' && (c) < 0177			\
@@ -343,8 +333,6 @@ enum syntaxcode { Swhitespace = 0, Sword = 1, Ssymbol = 2 };
 		    : SYNTAX (c) != Sword)
 
 # define ISSPACE(c) (SYNTAX (c) == Swhitespace)
-
-# define ISUPPER(c) uppercasep (c)
 
 # define ISWORD(c) (SYNTAX (c) == Sword)
 

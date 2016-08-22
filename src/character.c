@@ -960,115 +960,99 @@ character is not ASCII nor 8-bit character, an error is signaled.  */)
   return make_number (c);
 }
 
-static unicode_category_t
-char_unicode_category (int c)
-{
+#define CHAR_BIT_ALNUM_ CHAR_BIT_ALNUM | CHAR_BIT_GRAPH | CHAR_BIT_PRINT
+#define CHAR_BIT_ALPHA_ CHAR_BIT_ALPHA | CHAR_BIT_ALNUM_
+
+/* See UTS #18 and DerivedCoreProperties.txt.  alpha, alnum, upper and
+   lower are missing some characters, namely those designated as
+   Other_uppercase, Other_lowercase and Other_alphabetic; FIXME.  */
+
+/* Map from Unicode general category to character classes the character is in.
+ *
+ * Only character classes defined by CHAR_BIT_* above are present.
+ *
+ * This is an array of bit fields so for example ‘category_char_bits[gc] &
+ * CHAR_BIT_ALPHA’ tells you whether characters in general category GC are
+ * alphabetic or not. */
+static const unsigned char category_char_bits[] = {
+  [UNICODE_CATEGORY_UNKNOWN] = 0,
+  [UNICODE_CATEGORY_Lu] = CHAR_BIT_ALPHA_ | CHAR_BIT_UPPER,
+  [UNICODE_CATEGORY_Ll] = CHAR_BIT_ALPHA_ | CHAR_BIT_LOWER,
+  [UNICODE_CATEGORY_Lt] = CHAR_BIT_ALPHA_,
+  [UNICODE_CATEGORY_Lm] = CHAR_BIT_ALPHA_,
+  [UNICODE_CATEGORY_Lo] = CHAR_BIT_ALPHA_,
+  [UNICODE_CATEGORY_Mn] = CHAR_BIT_ALPHA_,
+  [UNICODE_CATEGORY_Mc] = CHAR_BIT_ALPHA_,
+  [UNICODE_CATEGORY_Me] = CHAR_BIT_ALPHA_,
+  [UNICODE_CATEGORY_Nd] = CHAR_BIT_ALNUM_,
+  [UNICODE_CATEGORY_Nl] = CHAR_BIT_ALPHA_,
+  [UNICODE_CATEGORY_No] = CHAR_BIT_PRINT | CHAR_BIT_GRAPH,
+  [UNICODE_CATEGORY_Pc] = CHAR_BIT_PRINT | CHAR_BIT_GRAPH,
+  [UNICODE_CATEGORY_Pd] = CHAR_BIT_PRINT | CHAR_BIT_GRAPH,
+  [UNICODE_CATEGORY_Ps] = CHAR_BIT_PRINT | CHAR_BIT_GRAPH,
+  [UNICODE_CATEGORY_Pe] = CHAR_BIT_PRINT | CHAR_BIT_GRAPH,
+  [UNICODE_CATEGORY_Pi] = CHAR_BIT_PRINT | CHAR_BIT_GRAPH,
+  [UNICODE_CATEGORY_Pf] = CHAR_BIT_PRINT | CHAR_BIT_GRAPH,
+  [UNICODE_CATEGORY_Po] = CHAR_BIT_PRINT | CHAR_BIT_GRAPH,
+  [UNICODE_CATEGORY_Sm] = CHAR_BIT_PRINT | CHAR_BIT_GRAPH,
+  [UNICODE_CATEGORY_Sc] = CHAR_BIT_PRINT | CHAR_BIT_GRAPH,
+  [UNICODE_CATEGORY_Sk] = CHAR_BIT_PRINT | CHAR_BIT_GRAPH,
+  [UNICODE_CATEGORY_So] = CHAR_BIT_PRINT | CHAR_BIT_GRAPH,
+  [UNICODE_CATEGORY_Zs] = CHAR_BIT_PRINT | CHAR_BIT_BLANK,
+  [UNICODE_CATEGORY_Zl] = CHAR_BIT_PRINT,
+  [UNICODE_CATEGORY_Zp] = CHAR_BIT_PRINT,
+  [UNICODE_CATEGORY_Cc] = 0,
+  [UNICODE_CATEGORY_Cf] = CHAR_BIT_PRINT | CHAR_BIT_GRAPH,
+  [UNICODE_CATEGORY_Cs] = 0,
+  [UNICODE_CATEGORY_Co] = CHAR_BIT_PRINT | CHAR_BIT_GRAPH,
+  [UNICODE_CATEGORY_Cn] = 0,
+};
+
+#undef CHAR_BIT_ALNUM_
+#undef CHAR_BIT_ALPHA_
+
+#define P_ CHAR_BIT_PRINT
+#define B_ CHAR_BIT_BLANK | P_
+#define G_ CHAR_BIT_GRAPH | P_
+#define N_ CHAR_BIT_ALNUM | G_
+#define U_ CHAR_BIT_UPPER | CHAR_BIT_ALPHA | N_
+#define L_ CHAR_BIT_LOWER | CHAR_BIT_ALPHA | N_
+
+/* Map from ASCII character to character classes the character is in.
+ *
+ * Similar to category_char_bits except its indexes are ASCII character
+ * codes. */
+const unsigned char _ascii_char_bits[] = {
+/*\0  ...                             \t                                 \17 */
+   0,  0,  0,  0,  0,  0,  0,  0,  0, CHAR_BIT_BLANK,  0,  0,  0,  0,  0,  0,
+/*\20  ...                                                    \37 */
+   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+/*' ' '!' '"' '#' '$' '%' '&' '´' '(' ')' '*' '+' ',' '-' '.' '/' */
+  B_, G_, G_, G_, G_, G_, G_, G_, G_, G_, G_, G_, G_, G_, G_, G_,
+/*'0' '1' '2' '3' '4' '5' '6' '7' '8' '9' ':' ';' '<' '=' '>' '?' */
+  N_, N_, N_, N_, N_, N_, N_, N_, N_, N_, G_, G_, G_, G_, G_, G_,
+/*'@' 'A' 'B' 'C' 'D' 'E' 'F' 'G' 'H' 'I' 'J' 'K' 'L' 'M' 'N' 'O' */
+  G_, U_, U_, U_, U_, U_, U_, U_, U_, U_, U_, U_, U_, U_, U_, U_,
+/*'P' 'Q' 'R' 'S' 'T' 'U' 'V' 'W' 'X' 'Y' 'Z' '[' '\' ']' '^' '_' */
+  U_, U_, U_, U_, U_, U_, U_, U_, U_, U_, U_, G_, G_, G_, G_, G_,
+/*'`' 'a' 'b' 'c' 'd' 'e' 'f' 'g' 'h' 'i' 'j' 'k' 'l' 'm' 'n' 'o' */
+  G_, L_, L_, L_, L_, L_, L_, L_, L_, L_, L_, L_, L_, L_, L_, L_,
+/*'p' 'q' 'r' 's' 't' 'u' 'v' 'w' 'x' 'y' 'z' '{' '|' '}' '~' \177 */
+  L_, L_, L_, L_, L_, L_, L_, L_, L_, L_, L_, G_, G_, G_, G_,  0,
+};
+
+#undef P_
+#undef B_
+#undef G_
+#undef N_
+#undef U_
+#undef L_
+
+unsigned get_unicode_char_bits (int c) {
   Lisp_Object category = CHAR_TABLE_REF (Vunicode_category_table, c);
-  return INTEGERP (category) ? XINT (category) : UNICODE_CATEGORY_UNKNOWN;
-}
-
-/* Return true if C is a upper case character.  This does not imply it
-   has a lower case form. */
-bool
-uppercasep (int c)
-{
-  unicode_category_t gen_cat = char_unicode_category (c);
-
-  /* See UTS #18.  There are additional characters that should be
-     here, those designated as Other_uppercase; FIXME.  */
-  return gen_cat == UNICODE_CATEGORY_Lu;
-}
-
-/* Return true if C is a lower case character.  This does not imply it
-   has an upper case form. */
-bool
-lowercasep (int c)
-{
-  unicode_category_t gen_cat = char_unicode_category (c);
-
-  /* See UTS #18.  There are additional characters that should be
-     here, those designated as Other_lowercase; FIXME.  */
-  return gen_cat == UNICODE_CATEGORY_Ll;
-}
-
-/* Return true if C is an alphabetic character.  */
-bool
-alphabeticp (int c)
-{
-  unicode_category_t gen_cat = char_unicode_category (c);
-
-  /* See UTS #18.  There are additional characters that should be
-     here, those designated as Other_uppercase, Other_lowercase,
-     and Other_alphabetic; FIXME.  */
-  return (gen_cat == UNICODE_CATEGORY_Lu
-	  || gen_cat == UNICODE_CATEGORY_Ll
-	  || gen_cat == UNICODE_CATEGORY_Lt
-	  || gen_cat == UNICODE_CATEGORY_Lm
-	  || gen_cat == UNICODE_CATEGORY_Lo
-	  || gen_cat == UNICODE_CATEGORY_Mn
-	  || gen_cat == UNICODE_CATEGORY_Mc
-	  || gen_cat == UNICODE_CATEGORY_Me
-	  || gen_cat == UNICODE_CATEGORY_Nl);
-}
-
-/* Return true if C is an alphabetic or decimal-number character.  */
-bool
-alphanumericp (int c)
-{
-  unicode_category_t gen_cat = char_unicode_category (c);
-
-  /* See UTS #18.  Same comment as for alphabeticp applies.  FIXME. */
-  return (gen_cat == UNICODE_CATEGORY_Lu
-	  || gen_cat == UNICODE_CATEGORY_Ll
-	  || gen_cat == UNICODE_CATEGORY_Lt
-	  || gen_cat == UNICODE_CATEGORY_Lm
-	  || gen_cat == UNICODE_CATEGORY_Lo
-	  || gen_cat == UNICODE_CATEGORY_Mn
-	  || gen_cat == UNICODE_CATEGORY_Mc
-	  || gen_cat == UNICODE_CATEGORY_Me
-	  || gen_cat == UNICODE_CATEGORY_Nl
-	  || gen_cat == UNICODE_CATEGORY_Nd);
-}
-
-/* Return true if C is a graphic character.  */
-bool
-graphicp (int c)
-{
-  unicode_category_t gen_cat = char_unicode_category (c);
-
-  /* See UTS #18.  */
-  return (!(gen_cat == UNICODE_CATEGORY_UNKNOWN
-	    || gen_cat == UNICODE_CATEGORY_Zs /* space separator */
-	    || gen_cat == UNICODE_CATEGORY_Zl /* line separator */
-	    || gen_cat == UNICODE_CATEGORY_Zp /* paragraph separator */
-	    || gen_cat == UNICODE_CATEGORY_Cc /* control */
-	    || gen_cat == UNICODE_CATEGORY_Cs /* surrogate */
-	    || gen_cat == UNICODE_CATEGORY_Cn)); /* unassigned */
-}
-
-/* Return true if C is a printable character.  */
-bool
-printablep (int c)
-{
-  unicode_category_t gen_cat = char_unicode_category (c);
-
-  /* See UTS #18.  */
-  return (!(gen_cat == UNICODE_CATEGORY_UNKNOWN
-	    || gen_cat == UNICODE_CATEGORY_Cc /* control */
-	    || gen_cat == UNICODE_CATEGORY_Cs /* surrogate */
-	    || gen_cat == UNICODE_CATEGORY_Cn)); /* unassigned */
-}
-
-/* Return true if C is a horizontal whitespace character, as defined
-   by http://www.unicode.org/reports/tr18/tr18-19.html#blank.  */
-bool
-blankp (int c)
-{
-  Lisp_Object category = CHAR_TABLE_REF (Vunicode_category_table, c);
-  if (! INTEGERP (category))
-    return false;
-
-  return XINT (category) == UNICODE_CATEGORY_Zs; /* separator, space */
+  return category_char_bits[INTEGERP (category) ?
+			    XINT (category) :
+			    UNICODE_CATEGORY_UNKNOWN];
 }
 
 

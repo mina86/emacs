@@ -652,7 +652,61 @@ typedef enum {
   UNICODE_CATEGORY_Cs,
   UNICODE_CATEGORY_Co,
   UNICODE_CATEGORY_Cn
+  /* Don’t forget to extend category_char_bits in character.c when new entries
+     are added here. */
 } unicode_category_t;
+
+/* Limited set of character categories which are syntax-independent.  Testing of
+ * those characters does not require any run-time data, i.e. does not depend on
+ * syntax table. */
+#define CHAR_BIT_ALNUM        (1 << 0)
+#define CHAR_BIT_ALPHA        (1 << 1)
+#define CHAR_BIT_UPPER        (1 << 2)
+#define CHAR_BIT_LOWER        (1 << 3)
+#define CHAR_BIT_BLANK        (1 << 4)
+#define CHAR_BIT_GRAPH        (1 << 5)
+#define CHAR_BIT_PRINT        (1 << 6)
+
+/* Return character bits for an ASCII character C.
+ *
+ * C must be an integer in the [0, 127] range, i.e. an ASCII character.  For
+ * performance, no checks whether that is actually the case is performed in the
+ * function itself.
+ *
+ * See get_char_bits for more info. */
+static inline unsigned get_ascii_char_bits (int c) {
+  extern const unsigned char _ascii_char_bits[128];
+
+  return _ascii_char_bits[c];
+}
+
+/* Return character bits for a character C.
+ *
+ * Like get_char_bits (which see) but lacks a special case for ASCII characters.
+ * It is always safe to use and may be faster if caller knows that C is not an
+ * ASCII character.  On the other hand, it may be slower for ASCII characters
+ * since it requires a Unicode general category lookup. */
+extern unsigned get_unicode_char_bits (int c);
+
+/* Return character bits for a character C.
+ *
+ * Returned value is a bit field of a CHAR_BIT_* macros defined above.  For
+ * example ‘get_char_bits(ch) & CHAR_BIT_ALPHA’ determines whether character CH
+ * is alphabetic or not. */
+static inline unsigned get_char_bits (int c) {
+  return (unsigned)c < 128 ? get_ascii_char_bits(c) : get_unicode_char_bits(c);
+}
+
+/* Return whether character C is lower-case. */
+static inline bool lowercasep (int c) {
+  return get_char_bits(c) & CHAR_BIT_LOWER;
+}
+
+/* Return whether character C is upper-case. */
+static inline bool uppercasep (int c) {
+  return get_char_bits(c) & CHAR_BIT_UPPER;
+}
+
 
 extern EMACS_INT char_resolve_modifier_mask (EMACS_INT) ATTRIBUTE_CONST;
 extern int char_string (unsigned, unsigned char *);
@@ -675,14 +729,6 @@ extern ptrdiff_t lisp_string_width (Lisp_Object, ptrdiff_t,
 
 extern Lisp_Object Vchar_unify_table;
 extern Lisp_Object string_escape_byte8 (Lisp_Object);
-
-extern bool uppercasep (int);
-extern bool lowercasep (int);
-extern bool alphabeticp (int);
-extern bool alphanumericp (int);
-extern bool graphicp (int);
-extern bool printablep (int);
-extern bool blankp (int);
 
 extern bool confusable_symbol_character_p (int ch);
 
