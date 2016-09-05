@@ -1767,17 +1767,29 @@ struct range_table_work_area
 /* Bits used to implement the multibyte-part of the various character classes
    such as [:alnum:] in a charset's range table.  The code currently assumes
    that only the low 16 bits are used.  */
-#define BIT_WORD	0x1
-#define BIT_LOWER	0x2
-#define BIT_PUNCT	0x4
-#define BIT_SPACE	0x8
-#define BIT_UPPER	0x10
-#define BIT_MULTIBYTE	0x20
-#define BIT_ALPHA	0x40
-#define BIT_ALNUM	0x80
-#define BIT_GRAPH	0x100
-#define BIT_PRINT	0x200
-#define BIT_BLANK       0x400
+
+#ifdef emacs
+#  define BIT_ALNUM	CHAR_BIT_ALNUM
+#  define BIT_ALPHA	CHAR_BIT_ALPHA
+#  define BIT_UPPER	CHAR_BIT_UPPER
+#  define BIT_LOWER	CHAR_BIT_LOWER
+#  define BIT_BLANK	CHAR_BIT_BLANK
+#  define BIT_GRAPH	CHAR_BIT_GRAPH
+#  define BIT_PRINT	CHAR_BIT_PRINT
+#else
+#  define BIT_ALNUM	(1 << 0)
+#  define BIT_ALPHA	(1 << 1)
+#  define BIT_UPPER	(1 << 2)
+#  define BIT_LOWER	(1 << 3)
+#  define BIT_BLANK	(1 << 4)
+#  define BIT_GRAPH	(1 << 5)
+#  define BIT_PRINT	(1 << 6)
+#endif
+#define BIT_WORD	(BIT_PRINT << 1)
+#define BIT_PUNCT	(BIT_PRINT << 2)
+#define BIT_SPACE	(BIT_PRINT << 3)
+#define BIT_MULTIBYTE	(BIT_PRINT << 4)
+
 
 
 /* Set the bit for character C in a list.  */
@@ -4637,28 +4649,44 @@ execute_charset (re_char **pp, unsigned c, unsigned corig, bool unibyte)
   else if (rtp)
     {
       int class_bits = CHARSET_RANGE_TABLE_BITS (p);
+      int bits;
       re_wchar_t range_start, range_end;
 
-  /* Sort tests by the most commonly used classes with some adjustment to which
-     tests are easiest to perform.  Take a look at comment in re_wctype_parse
-     for table with frequencies of character class names. */
-
-      if ((class_bits & BIT_MULTIBYTE) ||
-	  (class_bits & BIT_ALNUM && ISALNUM (c)) ||
-	  (class_bits & BIT_ALPHA && ISALPHA (c)) ||
-	  (class_bits & BIT_SPACE && ISSPACE (c)) ||
-          (class_bits & BIT_BLANK && ISBLANK (c)) ||
-	  (class_bits & BIT_WORD  && ISWORD  (c)) ||
-	  ((class_bits & BIT_UPPER) &&
-	   (ISUPPER (c) || (corig != c &&
-			    c == downcase (corig) && ISLOWER (c)))) ||
-	  ((class_bits & BIT_LOWER) &&
-	   (ISLOWER (c) || (corig != c &&
-			    c == upcase (corig) && ISUPPER(c)))) ||
-	  (class_bits & BIT_PUNCT && ISPUNCT (c)) ||
-	  (class_bits & BIT_GRAPH && ISGRAPH (c)) ||
-	  (class_bits & BIT_PRINT && ISPRINT (c)))
+      if (class_bits & BIT_MULTIBYTE)
 	return !not;
+
+      /* If we are at this point, the character is not an ASCII or single byte
+	 character.  This means that whenever ISFOO macros have special case for
+	 IS_REAL_ASCII (c), we can ignore that. */
+
+      bits = class_bits & (BIT_ALNUM | BIT_ALPHA | BIT_UPPER | BIT_LOWER |
+			   BIT_BLANK | BIT_GRAPH | BIT_PRINT);
+      if (bits)
+	{
+	  int char_bits = get_unicode_char_bits(c);
+	  if (bits & char_bits)
+	    return !not;
+
+	  /* Handle case folding. */
+	  if (corig != c)
+	    {
+	      if ((bits & BIT_UPPER) && (char_bits & BIT_LOWER) &&
+		  c == downcase (corig))
+		return !not;
+	      if ((bits & BIT_LOWER) && (char_bits & BIT_UPPER) &&
+		  c == upcase (corig))
+		return !not;
+	    }
+	}
+
+      if (class_bits & (BIT_SPACE | BIT_WORD | BIT_PUNCT))
+	{
+	  enum syntaxcode s = SYNTAX (c);
+	  if (((class_bits & BIT_SPACE) && s == Swhitespace) ||
+	      ((class_bits & BIT_WORD ) && s == Sword) ||
+	      ((class_bits & BIT_PUNCT) && s != Sword))
+	    return !not;
+	}
 
       for (p = *pp; rtp < p; rtp += 2 * 3)
 	{

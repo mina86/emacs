@@ -98,6 +98,51 @@ match.  The test is done using `string-match-p' as well as
     (eval `(ert-deftest ,name () ,doc ,(cons 'regex--test-cc test)) t)))
 
 
+(ert-deftest regex-tests--letter-character-classes ()
+  "Test character classes against various letters types."
+  (should-not
+   (cl-remove-if
+    'not
+    (let ((check-ccs (lambda (ch fold)
+                       (mapconcat
+                        (lambda (str) str)
+                        (let ((case-fold-search fold))
+                          (cl-remove-if-not
+                           (lambda (cc)
+                             (string-match-p (concat "[[:" cc ":]]")
+                                             (string ch)))
+                           '("alnum" "alpha" "upper" "lower")))
+                        " "))))
+      (mapcar
+       (lambda (entry)
+         (let ((ch (car entry)) (expected (cdr entry)))
+           (setq entry
+                 (format "%s | %s | case-fold: %s"
+                         (get-char-code-property ch 'general-category)
+                         (funcall check-ccs ch nil) (funcall check-ccs ch t)))
+           (unless (string-equal expected entry)
+             (format "\n%c        expected: %s\nU+%06X  but got: %s"
+                     ch expected ch entry))))
+       '((?A . "Lu | alnum alpha upper | case-fold: alnum alpha upper lower")
+         (?ẞ . "Lu | alnum alpha upper | case-fold: alnum alpha upper lower")
+         (?Ǳ . "Lu | alnum alpha upper | case-fold: alnum alpha upper lower")
+         (?a . "Ll | alnum alpha lower | case-fold: alnum alpha upper lower")
+         ;; FIXME(bug#24603): Should match upper when case-fold case
+         ;; (?ł . "Ll | alnum alpha lower | case-fold: alnum alpha upper lower")
+         ;; (?ß . "Ll | alnum alpha lower | case-fold: alnum alpha upper lower")
+         ;; (?ﬁ . "Ll | alnum alpha lower | case-fold: alnum alpha upper lower")
+         ;; (?ɕ . "Ll | alnum alpha lower | case-fold: alnum alpha upper lower")
+         ;; (?ǳ . "Ll | alnum alpha lower | case-fold: alnum alpha upper lower")
+         (?ł . "Ll | alnum alpha lower | case-fold: alnum alpha lower")
+         (?ß . "Ll | alnum alpha lower | case-fold: alnum alpha lower")
+         (?ﬁ . "Ll | alnum alpha lower | case-fold: alnum alpha lower")
+         (?ɕ . "Ll | alnum alpha lower | case-fold: alnum alpha lower")
+         (?ǳ . "Ll | alnum alpha lower | case-fold: alnum alpha lower")
+         (?ǲ . "Lt | alnum alpha | case-fold: alnum alpha upper lower")
+         (?ʰ . "Lm | alnum alpha | case-fold: alnum alpha")
+         (?º . "Lo | alnum alpha | case-fold: alnum alpha")))))))
+
+
 (defun regex-tests-benchmark-cc-match ()
   "Benchmark regex character class matching."
   (interactive)
