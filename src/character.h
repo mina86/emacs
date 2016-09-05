@@ -663,9 +663,10 @@ typedef enum {
 #define CHAR_BIT_ALPHA        (1 << 1)
 #define CHAR_BIT_UPPER        (1 << 2)
 #define CHAR_BIT_LOWER        (1 << 3)
-#define CHAR_BIT_BLANK        (1 << 4)
-#define CHAR_BIT_GRAPH        (1 << 5)
-#define CHAR_BIT_PRINT        (1 << 6)
+#define CHAR_BIT_TITLE        (1 << 4)
+#define CHAR_BIT_BLANK        (1 << 5)
+#define CHAR_BIT_GRAPH        (1 << 6)
+#define CHAR_BIT_PRINT        (1 << 7)
 
 /* Return character bits for an ASCII character C.
  *

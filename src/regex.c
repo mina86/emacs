@@ -1773,6 +1773,7 @@ struct range_table_work_area
 #  define BIT_ALPHA	CHAR_BIT_ALPHA
 #  define BIT_UPPER	CHAR_BIT_UPPER
 #  define BIT_LOWER	CHAR_BIT_LOWER
+#  define BIT_TITLE	CHAR_BIT_TITLE
 #  define BIT_BLANK	CHAR_BIT_BLANK
 #  define BIT_GRAPH	CHAR_BIT_GRAPH
 #  define BIT_PRINT	CHAR_BIT_PRINT
@@ -1781,9 +1782,10 @@ struct range_table_work_area
 #  define BIT_ALPHA	(1 << 1)
 #  define BIT_UPPER	(1 << 2)
 #  define BIT_LOWER	(1 << 3)
-#  define BIT_BLANK	(1 << 4)
-#  define BIT_GRAPH	(1 << 5)
-#  define BIT_PRINT	(1 << 6)
+#  define BIT_TITLE	(1 << 4)
+#  define BIT_BLANK	(1 << 5)
+#  define BIT_GRAPH	(1 << 6)
+#  define BIT_PRINT	(1 << 7)
 #endif
 #define BIT_WORD	(BIT_PRINT << 1)
 #define BIT_PUNCT	(BIT_PRINT << 2)
@@ -2051,7 +2053,7 @@ re_iswctype (int ch, re_wctype_t cc)
 /* Return a bit-pattern to use in the range-table bits to match multibyte
    chars of class CC.  */
 static int
-re_wctype_to_bit (re_wctype_t cc)
+re_wctype_to_bit (re_wctype_t cc, bool case_fold)
 {
   switch (cc)
     {
@@ -2060,8 +2062,10 @@ re_wctype_to_bit (re_wctype_t cc)
     case RECC_ALPHA: return BIT_ALPHA;
     case RECC_ALNUM: return BIT_ALNUM;
     case RECC_WORD: return BIT_WORD;
-    case RECC_LOWER: return BIT_LOWER;
-    case RECC_UPPER: return BIT_UPPER;
+    case RECC_LOWER:
+      return case_fold ? BIT_LOWER | BIT_UPPER | BIT_TITLE : BIT_LOWER;
+    case RECC_UPPER:
+      return case_fold ? BIT_LOWER | BIT_UPPER | BIT_TITLE : BIT_UPPER;
     case RECC_PUNCT: return BIT_PUNCT;
     case RECC_SPACE: return BIT_SPACE;
     case RECC_GRAPH: return BIT_GRAPH;
@@ -2872,7 +2876,8 @@ regex_compile (re_char *pattern, size_t size,
 			    SET_LIST_BIT (c1);
 			}
 		    SET_RANGE_TABLE_WORK_AREA_BIT
-		      (range_table_work, re_wctype_to_bit (cc));
+		      (range_table_work,
+		       re_wctype_to_bit (cc, RE_TRANSLATE_P (translate)));
 #endif	/* emacs */
 		    /* In most cases the matching rule for char classes only
 		       uses the syntax table for multibyte chars, so that the
@@ -4618,9 +4623,8 @@ skip_noops (re_char *p, re_char *pend)
 
 /* Test if C matches charset op.  *PP points to the charset or charset_not
    opcode.  When the function finishes, *PP will be advanced past that opcode.
-   C is character to test (possibly after translations) and CORIG is original
-   character (i.e. without any translations).  UNIBYTE denotes whether c is
-   unibyte or multibyte character. */
+   C is character to test.  UNIBYTE denotes whether c is unibyte or multibyte
+   character. */
 static bool
 execute_charset (re_char **pp, unsigned c, unsigned corig, bool unibyte)
 {
@@ -4660,24 +4664,9 @@ execute_charset (re_char **pp, unsigned c, unsigned corig, bool unibyte)
 	 IS_REAL_ASCII (c), we can ignore that. */
 
       bits = class_bits & (BIT_ALNUM | BIT_ALPHA | BIT_UPPER | BIT_LOWER |
-			   BIT_BLANK | BIT_GRAPH | BIT_PRINT);
-      if (bits)
-	{
-	  int char_bits = get_unicode_char_bits(c);
-	  if (bits & char_bits)
-	    return !not;
-
-	  /* Handle case folding. */
-	  if (corig != c)
-	    {
-	      if ((bits & BIT_UPPER) && (char_bits & BIT_LOWER) &&
-		  c == downcase (corig))
-		return !not;
-	      if ((bits & BIT_LOWER) && (char_bits & BIT_UPPER) &&
-		  c == upcase (corig))
-		return !not;
-	    }
-	}
+			   BIT_TITLE | BIT_BLANK | BIT_GRAPH | BIT_PRINT);
+      if (bits && (get_unicode_char_bits (c) & bits))
+	return !not;
 
       if (class_bits & (BIT_SPACE | BIT_WORD | BIT_PUNCT))
 	{
@@ -4757,7 +4746,7 @@ mutually_exclusive_p (struct re_pattern_buffer *bufp, re_char *p1,
 	else if ((re_opcode_t) *p1 == charset
 		 || (re_opcode_t) *p1 == charset_not)
 	  {
-	    if (!execute_charset (&p1, c, c, !multibyte || IS_REAL_ASCII (c)))
+	    if (!execute_charset (&p1, c, !multibyte || IS_REAL_ASCII (c)))
 	      {
 		DEBUG_PRINT ("	 No match => fast loop.\n");
 		return 1;
@@ -5461,7 +5450,7 @@ re_match_2_internal (struct re_pattern_buffer *bufp, re_char *string1,
 	case charset:
 	case charset_not:
 	  {
-	    register unsigned int c, corig;
+	    register unsigned int c;
 	    int len;
 
 	    /* Whether matching against a unibyte character.  */
@@ -5471,7 +5460,7 @@ re_match_2_internal (struct re_pattern_buffer *bufp, re_char *string1,
 			 (re_opcode_t) *(p - 1) == charset_not ? "_not" : "");
 
 	    PREFETCH ();
-	    corig = c = RE_STRING_CHAR_AND_LENGTH (d, len, target_multibyte);
+	    c = RE_STRING_CHAR_AND_LENGTH (d, len, target_multibyte);
 	    if (target_multibyte)
 	      {
 		int c1;
@@ -5503,7 +5492,7 @@ re_match_2_internal (struct re_pattern_buffer *bufp, re_char *string1,
 	      }
 
 	    p -= 1;
-	    if (!execute_charset (&p, c, corig, unibyte_char))
+	    if (!execute_charset (&p, c, unibyte_char))
 	      goto fail;
 
 	    d += len;
