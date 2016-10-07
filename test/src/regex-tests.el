@@ -100,6 +100,69 @@ match.  The test is done using `string-match-p' as well as
     (eval `(ert-deftest ,name () ,doc ,(cons 'regex--test-cc test)) t)))
 
 
+(defun regex-tests-benchmark-cc-match ()
+  "Benchmark regex character class matching."
+  (interactive)
+  (let* ((prn (if (called-interactively-p)
+                  'insert
+                (lambda (&rest args) (mapc 'princ args))))
+         (strings
+          (nconc (list
+                  (apply 'string (number-sequence 32 126))
+                  (apply 'string (number-sequence 0 127))
+                  (apply 'unibyte-string (number-sequence 128 255))
+                  (concat (apply 'string (number-sequence 0 255))
+                          (apply 'unibyte-string (number-sequence 128 255)))
+                  (make-string 10000 #x3FFF80)
+                  (make-string 10000 #x3FFFFF))
+                 (mapcar (lambda (ch) (make-string 10000 ch))
+                         (number-sequence 0 256))))
+
+         (ccs '("alnum" "alpha" "digit" "xdigit" "upper" "lower"
+                "word" "punct" "cntrl" "graph" "print" "space" "blank"
+                "ascii" "nonascii" "unibyte" "multibyte"
+                ;; And now some multi-class matches.
+                "lower:][:upper"   ; incorrectly simulated title-case
+                "lower:][:digit"   ; used by lisp/progmodes/subword.el
+                "space:][:alnum")) ; used by lisp/xml.el
+
+         (benchmark-re
+          (lambda (re)
+            (dolist (cf '(nil t))
+              ;; Compile the regex so it ends up in cache.
+              (string-match re "")
+              (let ((res (benchmark-run 10
+                           (dolist (str strings) (string-match re str)))))
+                (funcall prn (format " %10.3f"
+                                     (* (- (nth 0 res) (nth 2 res)) 100))))))))
+
+    (when (called-interactively-p)
+      (switch-to-buffer (get-buffer-create "*Regex Benchmark*"))
+      (delete-region (point-min) (point-max)))
+
+    (funcall prn (format "%-9s  %-9s  %-9s  %-9s  %-9s\n"
+                         "Class" "[[:cc:]]" "no-case"
+                         "[^[:cc:]]" "no-case")
+             (make-string 9 ?-)
+             "  " (make-string 9 ?-) "  " (make-string 9 ?-)
+             "  " (make-string 9 ?-) "  " (make-string 9 ?-) "\n")
+
+    (dolist (cc ccs)
+      (funcall prn (format "%-9s" cc))
+      (dolist (re (list (format "[[:%s:]]" cc)
+                        (format "[^[:%s:]]" cc)))
+        (funcall benchmark-re re))
+      (funcall prn "\n"))
+
+    (funcall prn (format "%-9s" "...all..."))
+    (let ((all-ccs (mapconcat (lambda (cc) (format "[:%s:]" cc)) ccs "")))
+      (funcall benchmark-re (concat "[" all-ccs "]"))
+      (funcall benchmark-re (concat "[^" all-ccs "]")))
+
+    (funcall prn "\n" (make-string 53 ?-)
+             "\nAll times in ms; lower is better.\n")))
+
+
 (defmacro regex-tests-generic-line (comment-char test-file whitelist &rest body)
   "Reads a line of the test file TEST-FILE, skipping
 comments (defined by COMMENT-CHAR), and evaluates the tests in
