@@ -4626,7 +4626,7 @@ skip_noops (re_char *p, re_char *pend)
    C is character to test.  UNIBYTE denotes whether c is unibyte or multibyte
    character. */
 static bool
-execute_charset (re_char **pp, unsigned c, unsigned corig, bool unibyte)
+execute_charset (re_char **pp, unsigned c, bool unibyte)
 {
   re_char *p = *pp, *rtp = NULL;
   bool not = (re_opcode_t) *p == charset_not;
